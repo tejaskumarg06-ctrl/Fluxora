@@ -1,0 +1,6 @@
+{
+  "name": "Fluxora",
+  "description": "An interactive decentralized network telemetry dashboard. Features real-time state synchronization, intercontinental node link map optimization, and a functional API developer sandbox.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
