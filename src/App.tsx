@@ -106,87 +106,82 @@ export default function App() {
     const context = canvas.getContext('2d');
     if (!context) return;
     
+    const base = import.meta.env.BASE_URL;
     const frameCount1 = 150;
     const frameCount2 = 180;
-    const frameCount = frameCount1 + frameCount2; 
+    const frameCount = frameCount1 + frameCount2;
     const images: HTMLImageElement[] = [];
     let currentFrameIndex = 0;
+    let targetFrameIndex = 0;
+    let animationId: number | null = null;
 
     for (let i = 1; i <= frameCount1; i++) {
         const img = new Image();
         const frameNumber = i.toString().padStart(3, '0');
-        img.src = `/robotic frames one by one /ezgif-frame-${frameNumber}.jpg`;
+        img.src = `${base}robotic-frames/ezgif-frame-${frameNumber}.jpg`;
         images.push(img);
     }
     for (let i = 1; i <= frameCount2; i++) {
         const img = new Image();
         const frameNumber = i.toString().padStart(3, '0');
-        img.src = `/transformation of humanoid/ezgif-frame-${frameNumber}.jpg`;
+        img.src = `${base}humanoid-transformation/ezgif-frame-${frameNumber}.jpg`;
         images.push(img);
     }
 
-    function resizeAndDraw(img: HTMLImageElement) {
-        if (!img || !img.complete || !canvas) return;
-
+    // Setup canvas dimensions correctly (once, not per-draw, to avoid scale drift)
+    function setupCanvas() {
+        if (!canvas) return;
         const dpr = window.devicePixelRatio || 1;
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
         canvas.style.width = window.innerWidth + 'px';
         canvas.style.height = window.innerHeight + 'px';
-        
-        context?.scale(dpr, dpr);
-        if (context) {
-            context.imageSmoothingEnabled = true;
-            context.imageSmoothingQuality = 'high';
-        }
-
-        const canvasWidth = window.innerWidth;
-        const canvasHeight = window.innerHeight;
-
-        const scale = Math.max(canvasWidth / img.width, canvasHeight / img.height);
-        const dWidth = img.width * scale;
-        const dHeight = img.height * scale;
-        
-        const dx = (canvasWidth - dWidth) / 2;
-        const dy = (canvasHeight - dHeight) / 2;
-
-        context?.clearRect(0, 0, canvasWidth, canvasHeight);
-        context?.drawImage(img, 0, 0, img.width, img.height, dx, dy, dWidth, dHeight);
+        context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        context.imageSmoothingEnabled = true;
+        context.imageSmoothingQuality = 'high';
     }
 
-    images[0].onload = () => {
-        resizeAndDraw(images[0]);
-    };
+    function drawFrame(img: HTMLImageElement) {
+        if (!img || !img.complete || img.naturalWidth === 0 || !canvas) return;
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        const scale = Math.max(W / img.naturalWidth, H / img.naturalHeight);
+        const dw = img.naturalWidth * scale;
+        const dh = img.naturalHeight * scale;
+        context.clearRect(0, 0, W, H);
+        context.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
+
+    setupCanvas();
+    // Draw first frame as soon as it loads
+    images[0].onload = () => drawFrame(images[0]);
 
     const handleResize = () => {
-        if (images[currentFrameIndex] && images[currentFrameIndex].complete) {
-            resizeAndDraw(images[currentFrameIndex]);
-        }
+        setupCanvas();
+        const img = images[currentFrameIndex];
+        if (img && img.complete && img.naturalWidth > 0) drawFrame(img);
     };
     window.addEventListener('resize', handleResize);
 
     const handleScroll = () => {
-        const scrollDistance = document.documentElement.scrollHeight - window.innerHeight;
-        let scrollFraction = window.scrollY / scrollDistance;
-        scrollFraction = Math.max(0, Math.min(1, scrollFraction));
+        const scrollDist = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+        const frac = Math.max(0, Math.min(1, window.scrollY / scrollDist));
+        const frameIndex = Math.min(frameCount - 1, Math.floor(frac * frameCount));
         
-        const frameIndex = Math.min(
-            frameCount - 1,
-            Math.floor(scrollFraction * frameCount)
-        );
-
         if (frameIndex !== currentFrameIndex) {
             currentFrameIndex = frameIndex;
             requestAnimationFrame(() => {
-                resizeAndDraw(images[frameIndex]);
+                const img = images[currentFrameIndex];
+                if (img && img.complete && img.naturalWidth > 0) drawFrame(img);
             });
         }
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
 
     return () => {
         window.removeEventListener('resize', handleResize);
         window.removeEventListener('scroll', handleScroll);
+        if (animationId !== null) cancelAnimationFrame(animationId);
     };
   }, []);
 
@@ -343,7 +338,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen text-zinc-100 relative overflow-hidden flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-200">
+    <div className="min-h-screen text-zinc-100 relative overflow-x-hidden flex flex-col font-sans selection:bg-orange-500/30 selection:text-orange-200">
       <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full z-[-1] object-cover pointer-events-none" />
       
       {/* Immersive radial glowing background elements */}
@@ -2081,7 +2076,8 @@ export default function App() {
         <span>© 2026 Fluxora Inc.</span>
         <span>Human Behavior & Design</span>
       </footer>
-
+      {/* Extra space so the user can scroll to see the rest of the animation */}
+      <div className="h-[800vh] w-full relative z-0 pointer-events-none" />
     </div>
   );
 }
